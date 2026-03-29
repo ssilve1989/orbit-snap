@@ -1,0 +1,30 @@
+# fly.toml app configuration file for orbit-snap
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app            = 'orbit-snap'
+primary_region = 'lax'
+
+[build]
+dockerfile = 'Dockerfile'
+
+[http_service]
+internal_port        = 3000
+force_https          = true
+auto_stop_machines   = 'suspend'
+auto_start_machines  = true
+min_machines_running = 0
+max_machines_running = 1
+
+[[http_service.checks]]
+interval     = '30s'
+timeout      = '5s'
+grace_period = '10s'
+method       = 'GET'
+path         = '/health'
+
+[[vm]]
+memory   = 512
+cpus     = 1
+cpu_kind = "shared"

@@ -5,42 +5,44 @@
 
 ## Engine & Language
 
-- **Engine**: [TO BE CONFIGURED — run /setup-engine]
-- **Language**: [TO BE CONFIGURED]
-- **Rendering**: [TO BE CONFIGURED]
-- **Physics**: [TO BE CONFIGURED]
+- **Engine**: PixiJS v8.17.1 (Web)
+- **Language**: TypeScript 5.7+ (strict, ESM — `moduleResolution: bundler`, `noEmit: true`)
+- **Rendering**: PixiJS WebGL renderer (WebGL 1 context, GLSL ES 1.00 shaders)
+- **Physics**: None (custom collision/timing logic only)
 
 ## Naming Conventions
 
-- **Classes**: [TO BE CONFIGURED]
-- **Variables**: [TO BE CONFIGURED]
-- **Signals/Events**: [TO BE CONFIGURED]
-- **Files**: [TO BE CONFIGURED]
-- **Scenes/Prefabs**: [TO BE CONFIGURED]
-- **Constants**: [TO BE CONFIGURED]
+- **Classes**: PascalCase (e.g., `GameState`, `RingSpawner`)
+- **Variables / Functions**: camelCase (e.g., `ringSpeed`, `spawnRound()`)
+- **Events / Callbacks**: camelCase, verb-prefixed (e.g., `onRingHit`, `onRoundEnd`)
+- **Files**: kebab-case matching primary export (e.g., `ring-spawner.ts`, `game-state.ts`)
+- **Scenes / Containers**: PascalCase matching class (e.g., `GameScene`, `HudLayer`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `RING_SPEED`, `PERFECT_WINDOW`)
 
 ## Performance Budgets
 
-- **Target Framerate**: [TO BE CONFIGURED]
-- **Frame Budget**: [TO BE CONFIGURED]
-- **Draw Calls**: [TO BE CONFIGURED]
-- **Memory Ceiling**: [TO BE CONFIGURED]
+- **Target Framerate**: 60 fps
+- **Frame Budget**: 16.6 ms
+- **Draw Calls**: TBD (PixiJS batches automatically; monitor via PixiJS DevTools)
+- **Memory Ceiling**: TBD
 
 ## Testing
 
-- **Framework**: [TO BE CONFIGURED]
-- **Minimum Coverage**: [TO BE CONFIGURED]
-- **Required Tests**: Balance formulas, gameplay systems, networking (if applicable)
+- **Framework**: Vitest (unit tests for game logic); browser smoke tests for rendering
+- **Minimum Coverage**: TBD
+- **Required Tests**: Timing window formulas, ring spawner logic, difficulty progression, score calculations
 
 ## Forbidden Patterns
 
-<!-- Add patterns that should never appear in this project's codebase -->
-- [None configured yet — add as architectural decisions are made]
+- `as any` or unsafe type casts — fix type errors with discriminated unions, type guards, or narrowing
+- Hardcoded gameplay values outside config/constants files
+- Direct DOM manipulation inside game loop (use PixiJS overlay containers or HTML UI layer)
+- Synchronous blocking operations in the ticker callback
 
 ## Allowed Libraries / Addons
 
-<!-- Add approved third-party dependencies here -->
-- [None configured yet — add as dependencies are approved]
+- **PixiJS v8.17.1** — core renderer (approved)
+- **Vite** — build tooling (approved for production bundling)
 
 ## Architecture Decisions Log
 
