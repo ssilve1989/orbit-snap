@@ -22,6 +22,7 @@ import { Hud } from './ui/hud.js';
 import { TitleScreen } from './ui/title-screen.js';
 import { ScoreScreen } from './ui/score-screen.js';
 import { loadBestScore, saveBestScore } from './storage/high-score.js';
+import { initPwa } from './ui/pwa.js';
 
 // ─── PixiJS application ────────────────────────────────────────────────────────
 
@@ -227,3 +228,5 @@ titleScreen.show(() => {
   audio.resume();
   startSession();
 });
+
+initPwa();
