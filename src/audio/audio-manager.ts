@@ -60,6 +60,7 @@ const MUSIC_VOLUME = 0.5;
 export class AudioManager {
   readonly #ctx: AudioContext;
   readonly #music: HTMLAudioElement;
+  #playingBeforeHidden = false;
 
   constructor() {
     this.#ctx = new AudioContext();
@@ -67,6 +68,15 @@ export class AudioManager {
     this.#music = new Audio('/assets/audio/Orbiting_The_Burning_Core.mp3');
     this.#music.loop   = true;
     this.#music.volume = MUSIC_VOLUME;
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.#playingBeforeHidden = !this.#music.paused;
+        this.#music.pause();
+      } else if (this.#playingBeforeHidden) {
+        void this.#music.play();
+      }
+    });
   }
 
   /**
