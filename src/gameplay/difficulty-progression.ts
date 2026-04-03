@@ -1,11 +1,15 @@
 import {
+  ROUNDS_AT_LEVEL_ZERO,
   ROUNDS_PER_LEVEL,
   RING_COUNT_TABLE,
+  LOOP_MIN_RING_COUNT,
   BASE_RING_SPEED,
   SPEED_INCREMENT,
   MAX_RING_SPEED,
   STAGGER_MS,
   RING_SPEED_VARIANCE,
+  INTER_ROUND_MS,
+  INTER_ROUND_MS_LOOP,
 } from '../config.js';
 
 export interface DifficultyState {
@@ -15,11 +19,21 @@ export interface DifficultyState {
   /** ±px/s applied randomly per ring at spawn. 0 means no variance. */
   readonly ringSpeedVariance: number;
   readonly staggerMs: number;
+  /** True once diffLevel has wrapped past the end of RING_COUNT_TABLE. */
+  readonly isLooping: boolean;
+  /** Inter-round pause duration for the upcoming round (ms). */
+  readonly interRoundMs: number;
 }
 
 /**
  * Tracks rounds played and derives difficulty parameters for each round.
  * Implements S3 Difficulty Progression GDD.
+ *
+ * Level formula:
+ *   - Level 0 lasts ROUNDS_AT_LEVEL_ZERO rounds.
+ *   - Each subsequent level lasts ROUNDS_PER_LEVEL rounds.
+ *   - On wrap (level >= table length), ring count is floored at LOOP_MIN_RING_COUNT
+ *     and inter-round pause tightens to INTER_ROUND_MS_LOOP.
  */
 export class DifficultyProgression {
   #roundsPlayed = 0;
@@ -29,13 +43,21 @@ export class DifficultyProgression {
    * Call at round start, before rings spawn.
    */
   getDifficultyState(): DifficultyState {
-    const level = Math.floor(this.#roundsPlayed / ROUNDS_PER_LEVEL);
-    const ringCount = RING_COUNT_TABLE[level % RING_COUNT_TABLE.length] ?? 1;
+    const level = this.#roundsPlayed < ROUNDS_AT_LEVEL_ZERO
+      ? 0
+      : 1 + Math.floor((this.#roundsPlayed - ROUNDS_AT_LEVEL_ZERO) / ROUNDS_PER_LEVEL);
+
+    const isLooping = level >= RING_COUNT_TABLE.length;
+    const tableIndex = level % RING_COUNT_TABLE.length;
+    const rawRingCount = RING_COUNT_TABLE[tableIndex] ?? 1;
+    const ringCount = isLooping ? Math.max(rawRingCount, LOOP_MIN_RING_COUNT) : rawRingCount;
     const ringSpeed = Math.min(
       BASE_RING_SPEED + level * SPEED_INCREMENT,
       MAX_RING_SPEED,
     );
-    return { level, ringCount, ringSpeed, ringSpeedVariance: RING_SPEED_VARIANCE, staggerMs: STAGGER_MS };
+    const interRoundMs = isLooping ? INTER_ROUND_MS_LOOP : INTER_ROUND_MS;
+
+    return { level, ringCount, ringSpeed, ringSpeedVariance: RING_SPEED_VARIANCE, staggerMs: STAGGER_MS, isLooping, interRoundMs };
   }
 
   /**

@@ -1,13 +1,25 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DifficultyProgression } from '../src/gameplay/difficulty-progression.js';
 import {
+  ROUNDS_AT_LEVEL_ZERO,
   ROUNDS_PER_LEVEL,
   RING_COUNT_TABLE,
+  LOOP_MIN_RING_COUNT,
   BASE_RING_SPEED,
   SPEED_INCREMENT,
   MAX_RING_SPEED,
   STAGGER_MS,
+  INTER_ROUND_MS,
+  INTER_ROUND_MS_LOOP,
 } from '../src/config.js';
+
+/** Advance dp to the round count at which getDifficultyState() first returns targetLevel. */
+function advanceToLevel(dp: DifficultyProgression, targetLevel: number): void {
+  const rounds = targetLevel === 0
+    ? 0
+    : ROUNDS_AT_LEVEL_ZERO + (targetLevel - 1) * ROUNDS_PER_LEVEL;
+  while (dp.roundsPlayed < rounds) dp.onRoundEnd();
+}
 
 describe('DifficultyProgression', () => {
   let dp: DifficultyProgression;
@@ -22,30 +34,36 @@ describe('DifficultyProgression', () => {
     expect(state.ringCount).toBe(RING_COUNT_TABLE[0]);
     expect(state.ringSpeed).toBe(BASE_RING_SPEED);
     expect(state.staggerMs).toBe(STAGGER_MS);
+    expect(state.isLooping).toBe(false);
   });
 
-  it('advances level exactly every ROUNDS_PER_LEVEL rounds', () => {
-    for (let i = 0; i < ROUNDS_PER_LEVEL; i++) {
+  it('level 0 lasts ROUNDS_AT_LEVEL_ZERO rounds before advancing', () => {
+    for (let i = 0; i < ROUNDS_AT_LEVEL_ZERO; i++) {
       expect(dp.getDifficultyState().level).toBe(0);
       dp.onRoundEnd();
     }
     expect(dp.getDifficultyState().level).toBe(1);
   });
 
+  it('levels 1+ advance every ROUNDS_PER_LEVEL rounds', () => {
+    advanceToLevel(dp, 1);
+    for (let i = 0; i < ROUNDS_PER_LEVEL; i++) {
+      expect(dp.getDifficultyState().level).toBe(1);
+      dp.onRoundEnd();
+    }
+    expect(dp.getDifficultyState().level).toBe(2);
+  });
+
   it('ringCount matches RING_COUNT_TABLE at every level', () => {
     for (let level = 0; level < RING_COUNT_TABLE.length; level++) {
-      while (Math.floor(dp.roundsPlayed / ROUNDS_PER_LEVEL) < level) {
-        dp.onRoundEnd();
-      }
+      advanceToLevel(dp, level);
       expect(dp.getDifficultyState().ringCount).toBe(RING_COUNT_TABLE[level]);
     }
   });
 
   it('ringSpeed equals BASE_RING_SPEED + level * SPEED_INCREMENT', () => {
     for (let level = 0; level < 5; level++) {
-      while (Math.floor(dp.roundsPlayed / ROUNDS_PER_LEVEL) < level) {
-        dp.onRoundEnd();
-      }
+      advanceToLevel(dp, level);
       const expected = Math.min(
         BASE_RING_SPEED + level * SPEED_INCREMENT,
         MAX_RING_SPEED,
@@ -58,9 +76,7 @@ describe('DifficultyProgression', () => {
     if (SPEED_INCREMENT > 0) {
       const levelsToExceedCap =
         Math.ceil((MAX_RING_SPEED - BASE_RING_SPEED) / SPEED_INCREMENT) + 1;
-      for (let i = 0; i < levelsToExceedCap * ROUNDS_PER_LEVEL; i++) {
-        dp.onRoundEnd();
-      }
+      advanceToLevel(dp, levelsToExceedCap);
       expect(dp.getDifficultyState().ringSpeed).toBeLessThanOrEqual(MAX_RING_SPEED);
     } else {
       for (let i = 0; i < 100; i++) dp.onRoundEnd();
@@ -75,19 +91,40 @@ describe('DifficultyProgression', () => {
     expect(dp.getDifficultyState().level).toBe(levelBefore);
   });
 
-  it('table wraps seamlessly — ring count resets, speed does not', () => {
+  it('isLooping is false during first pass and true after table wrap', () => {
+    advanceToLevel(dp, RING_COUNT_TABLE.length - 1);
+    expect(dp.getDifficultyState().isLooping).toBe(false);
+
+    advanceToLevel(dp, RING_COUNT_TABLE.length);
+    expect(dp.getDifficultyState().isLooping).toBe(true);
+  });
+
+  it('ring count is clamped to LOOP_MIN_RING_COUNT on second pass', () => {
+    // Advance to the first level that would wrap back to a low ring count
+    advanceToLevel(dp, RING_COUNT_TABLE.length);
+    const state = dp.getDifficultyState();
+    expect(state.isLooping).toBe(true);
+    expect(state.ringCount).toBeGreaterThanOrEqual(LOOP_MIN_RING_COUNT);
+  });
+
+  it('speed does not reset on table wrap', () => {
     const tableLen = RING_COUNT_TABLE.length;
-    for (let i = 0; i < tableLen * ROUNDS_PER_LEVEL; i++) {
-      dp.onRoundEnd();
-    }
+    advanceToLevel(dp, tableLen);
     const wrappedState = dp.getDifficultyState();
-    expect(wrappedState.ringCount).toBe(RING_COUNT_TABLE[0]);
-    const absoluteLevel = tableLen;
     const expectedSpeed = Math.min(
-      BASE_RING_SPEED + absoluteLevel * SPEED_INCREMENT,
+      BASE_RING_SPEED + tableLen * SPEED_INCREMENT,
       MAX_RING_SPEED,
     );
     expect(wrappedState.ringSpeed).toBe(expectedSpeed);
+  });
+
+  it('interRoundMs is INTER_ROUND_MS on first pass', () => {
+    expect(dp.getDifficultyState().interRoundMs).toBe(INTER_ROUND_MS);
+  });
+
+  it('interRoundMs is INTER_ROUND_MS_LOOP on second pass', () => {
+    advanceToLevel(dp, RING_COUNT_TABLE.length);
+    expect(dp.getDifficultyState().interRoundMs).toBe(INTER_ROUND_MS_LOOP);
   });
 
   it('auto-missed rounds still increment roundsPlayed', () => {
@@ -96,13 +133,14 @@ describe('DifficultyProgression', () => {
   });
 
   it('reset() restores initial state', () => {
-    for (let i = 0; i < ROUNDS_PER_LEVEL + 1; i++) dp.onRoundEnd();
+    advanceToLevel(dp, 3);
     dp.reset();
     expect(dp.roundsPlayed).toBe(0);
     const state = dp.getDifficultyState();
     expect(state.level).toBe(0);
     expect(state.ringCount).toBe(RING_COUNT_TABLE[0]);
     expect(state.ringSpeed).toBe(BASE_RING_SPEED);
+    expect(state.isLooping).toBe(false);
   });
 
   it('DifficultyState includes all required fields', () => {
@@ -112,5 +150,7 @@ describe('DifficultyProgression', () => {
     expect(state).toHaveProperty('ringSpeed');
     expect(state).toHaveProperty('ringSpeedVariance');
     expect(state).toHaveProperty('staggerMs');
+    expect(state).toHaveProperty('isLooping');
+    expect(state).toHaveProperty('interRoundMs');
   });
 });

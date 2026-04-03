@@ -18,8 +18,11 @@ export const GOOD_WINDOW = 22;
 /** Grace distance past Good window before auto-miss fires (px) */
 export const AUTO_MISS_BUFFER = 12;
 
-/** Pause between rounds (ms) */
+/** Pause between rounds on the first pass (ms) */
 export const INTER_ROUND_MS = 750;
+
+/** Pause between rounds on second pass and beyond — tighter tempo at max speed (ms) */
+export const INTER_ROUND_MS_LOOP = 400;
 
 // ─── S2: Scoring & Combo ─────────────────────────────────────────────────────
 
@@ -43,23 +46,29 @@ export const MULTIPLIER_TABLE: readonly number[] = [1, 2, 3, 4];
 
 // ─── S3: Difficulty Progression ──────────────────────────────────────────────
 
-/** Rounds played before advancing to the next difficulty level */
-export const ROUNDS_PER_LEVEL = 4;
+/** Rounds spent at level 0 before the normal ROUNDS_PER_LEVEL cadence begins. */
+export const ROUNDS_AT_LEVEL_ZERO = 3;
+
+/** Rounds played before advancing to the next difficulty level (levels 1+). */
+export const ROUNDS_PER_LEVEL = 2;
 
 /**
  * Simultaneous ring count per difficulty level.
  * Wraps via diffLevel % table.length for endless play.
  */
-export const RING_COUNT_TABLE: readonly number[] = [1, 1, 2, 2, 3];
+export const RING_COUNT_TABLE: readonly number[] = [1, 2, 2, 3, 3];
 
 /** Ring convergence speed at level 0 (px/s) */
 export const BASE_RING_SPEED = 115;
 
 /** Speed added per difficulty level (px/s). */
-export const SPEED_INCREMENT = 8;
+export const SPEED_INCREMENT = 15;
 
 /** Maximum ring speed — prevents timing window below human reaction floor (px/s) */
 export const MAX_RING_SPEED = 175;
+
+/** Minimum ring count enforced on second pass and beyond — prevents regression to 1-ring. */
+export const LOOP_MIN_RING_COUNT = 2;
 
 /** Time between staggered ring spawns in a multi-ring round (ms) */
 export const STAGGER_MS = 550;

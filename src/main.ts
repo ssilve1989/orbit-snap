@@ -9,7 +9,7 @@
  */
 
 import * as PIXI from 'pixi.js';
-import { INTER_ROUND_MS, MAX_MISSES } from './config.js';
+import { MAX_MISSES } from './config.js';
 import { DifficultyProgression } from './gameplay/difficulty-progression.js';
 import { RingTap } from './gameplay/ring-tap.js';
 import { ScoringCombo } from './gameplay/scoring-combo.js';
@@ -123,7 +123,7 @@ ringTap.onRingResolved(event => {
 ringTap.onRoundEnd(() => {
   difficulty.onRoundEnd();
   phase = 'BETWEEN_ROUNDS';
-  interRoundTimer = INTER_ROUND_MS;
+  interRoundTimer = difficulty.getDifficultyState().interRoundMs;
 });
 
 // ─── Input ────────────────────────────────────────────────────────────────────
