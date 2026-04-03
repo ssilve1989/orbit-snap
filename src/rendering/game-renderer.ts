@@ -110,6 +110,12 @@ export class GameRenderer {
     this.#drawOrb(g, orbFlash);
   }
 
+  /** Clear all drawn content immediately (call when entering a menu phase). */
+  clear(): void {
+    this.#graphics.clear();
+    this.#resolvedFades.clear();
+  }
+
   /** Remove the graphics layer from the scene graph. */
   destroy(): void {
     this.#graphics.destroy();
@@ -200,9 +206,8 @@ export class GameRenderer {
     }
 
     // Prune fades for rings that have left the state array (round restarted)
-    const activeIds = new Set(rings.map(r => r.id));
     for (const id of this.#resolvedFades.keys()) {
-      if (!activeIds.has(id)) this.#resolvedFades.delete(id);
+      if (!rings.some(r => r.id === id)) this.#resolvedFades.delete(id);
     }
   }
 

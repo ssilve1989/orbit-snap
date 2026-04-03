@@ -1,12 +1,16 @@
 /**
  * VfxManager — particle bursts, screen flash overlays, and screen shake.
  *
- * Sits on a dedicated PixiJS layer above GameRenderer.
+ * Sits on two dedicated PixiJS layers:
+ *   - shakeParent: backgrounds, rings, particles — displaced during screen shake
+ *   - overlayParent: full-screen flash — NOT displaced by shake (no edge seam)
+ *
  * All animation state is internal; callers just trigger events.
  *
  * Usage:
- *   const vfx = new VfxManager(app.stage, W, H);
+ *   const vfx = new VfxManager(shakeLayer, overlayLayer, W, H);
  *   vfx.spawnPerfectBurst();   // on Perfect grade
+ *   vfx.spawnGoodBurst();      // on Good grade
  *   vfx.spawnMissPulse();      // on Miss grade — also triggers screen shake
  *   app.ticker.add(() => vfx.update(app.ticker.deltaMS / 1000));
  */
@@ -16,11 +20,15 @@ import * as PIXI from 'pixi.js';
 // ─── Visual constants ─────────────────────────────────────────────────────────
 
 const BURST_PARTICLE_COUNT = 10;
+const GOOD_PARTICLE_COUNT  = 6;
 const BURST_SPEED_MIN = 120;  // px/s
 const BURST_SPEED_MAX = 220;  // px/s
 const BURST_LIFETIME  = 0.38; // seconds
+const GOOD_LIFETIME   = 0.26; // seconds — shorter, lighter feel
 const BURST_RADIUS    = 3;    // particle dot radius (px)
-const BURST_COLOR     = 0x00ffcc;
+
+const BURST_COLOR_PERFECT = 0x00ffcc; // teal
+const BURST_COLOR_GOOD    = 0x88ff44; // lime
 
 const MISS_FLASH_ALPHA_PEAK = 0.28;
 const MISS_FLASH_DECAY      = 1.4;  // alpha/s
@@ -40,6 +48,7 @@ interface Particle {
   vy: number;
   life: number;
   maxLife: number;
+  color: number;
 }
 
 interface ScreenFlash {
@@ -56,8 +65,11 @@ interface Shake {
 // ─── VfxManager ───────────────────────────────────────────────────────────────
 
 export class VfxManager {
-  readonly #stage: PIXI.Container;
+  /** The gameplay layer — displaced by screen shake. */
+  readonly #shakeLayer: PIXI.Container;
+  /** Full-screen graphics layer on shakeLayer (particles). */
   readonly #g: PIXI.Graphics;
+  /** Full-screen overlay on overlayParent — NOT shaken. */
   readonly #overlay: PIXI.Graphics;
   readonly #cx: number;
   readonly #cy: number;
@@ -68,20 +80,29 @@ export class VfxManager {
   #flash: ScreenFlash | null = null;
   #shake: Shake | null = null;
 
-  constructor(parent: PIXI.Container, width: number, height: number) {
-    this.#stage = parent;
+  /**
+   * @param shakeParent   Container for gameplay elements (will be displaced during shake).
+   * @param overlayParent Separate container for the full-screen flash overlay (not shaken).
+   */
+  constructor(
+    shakeParent: PIXI.Container,
+    overlayParent: PIXI.Container,
+    width: number,
+    height: number,
+  ) {
+    this.#shakeLayer = shakeParent;
     this.#cx = width / 2;
     this.#cy = height / 2;
     this.#w  = width;
     this.#h  = height;
 
-    // Full-screen overlay (miss flash) — drawn first so it sits under particles
+    // Full-screen overlay (miss flash) — on its own layer, unaffected by shake
     this.#overlay = new PIXI.Graphics();
-    parent.addChild(this.#overlay);
+    overlayParent.addChild(this.#overlay);
 
-    // Particle layer
+    // Particle layer — on the shake layer so particles move with the screen
     this.#g = new PIXI.Graphics();
-    parent.addChild(this.#g);
+    shakeParent.addChild(this.#g);
   }
 
   /** Spawn a radial particle burst at the orb centre (Perfect grade). */
@@ -97,6 +118,25 @@ export class VfxManager {
         vy:      Math.sin(angle) * speed,
         life:    BURST_LIFETIME,
         maxLife: BURST_LIFETIME,
+        color:   BURST_COLOR_PERFECT,
+      });
+    }
+  }
+
+  /** Spawn a lighter particle burst at the orb centre (Good grade). */
+  spawnGoodBurst(): void {
+    for (let i = 0; i < GOOD_PARTICLE_COUNT; i++) {
+      const angle = (i / GOOD_PARTICLE_COUNT) * Math.PI * 2 +
+                    (Math.random() - 0.5) * 0.6;
+      const speed = BURST_SPEED_MIN + Math.random() * (BURST_SPEED_MAX - BURST_SPEED_MIN) * 0.7;
+      this.#particles.push({
+        x:       this.#cx,
+        y:       this.#cy,
+        vx:      Math.cos(angle) * speed,
+        vy:      Math.sin(angle) * speed,
+        life:    GOOD_LIFETIME,
+        maxLife: GOOD_LIFETIME,
+        color:   BURST_COLOR_GOOD,
       });
     }
   }
@@ -123,7 +163,12 @@ export class VfxManager {
       p.y    += p.vy * dt;
       p.life -= dt;
     }
-    this.#particles = this.#particles.filter(p => p.life > 0);
+    for (let i = this.#particles.length - 1; i >= 0; i--) {
+      if (this.#particles[i]!.life <= 0) {
+        this.#particles[i] = this.#particles[this.#particles.length - 1]!;
+        this.#particles.pop();
+      }
+    }
 
     // Advance screen flash
     if (this.#flash !== null) {
@@ -131,26 +176,36 @@ export class VfxManager {
       if (this.#flash.alpha <= 0) this.#flash = null;
     }
 
-    // Advance screen shake
+    // Advance screen shake — displaces shakeLayer only, not the overlay
     if (this.#shake !== null) {
       this.#shake.elapsed   += dt;
       this.#shake.intensity -= SHAKE_DECAY * dt;
       if (this.#shake.intensity <= 0) {
         this.#shake = null;
-        this.#stage.position.set(0, 0);
+        this.#shakeLayer.position.set(0, 0);
       } else {
         const offset = Math.sin(this.#shake.elapsed * SHAKE_FREQUENCY * Math.PI * 2)
                        * this.#shake.intensity;
-        this.#stage.position.x = offset;
-        this.#stage.position.y = offset * 0.4;
+        this.#shakeLayer.position.x = offset;
+        this.#shakeLayer.position.y = offset * 0.4;
       }
     }
 
     this.#draw();
   }
 
+  /** Clear all active effects immediately (call when ending a session). */
+  reset(): void {
+    this.#particles = [];
+    this.#flash     = null;
+    this.#shake     = null;
+    this.#shakeLayer.position.set(0, 0);
+    this.#overlay.clear();
+    this.#g.clear();
+  }
+
   destroy(): void {
-    this.#stage.position.set(0, 0);
+    this.#shakeLayer.position.set(0, 0);
     this.#g.destroy();
     this.#overlay.destroy();
   }
@@ -158,7 +213,7 @@ export class VfxManager {
   // ─── Private ────────────────────────────────────────────────────────────────
 
   #draw(): void {
-    // Screen flash overlay
+    // Screen flash overlay (on separate non-shaken layer)
     this.#overlay.clear();
     if (this.#flash !== null) {
       this.#overlay
@@ -166,13 +221,13 @@ export class VfxManager {
         .fill({ color: this.#flash.color, alpha: this.#flash.alpha });
     }
 
-    // Particles
+    // Particles (on shake layer)
     this.#g.clear();
     for (const p of this.#particles) {
       const progress = 1 - p.life / p.maxLife;
       const alpha    = 1 - progress;
       const radius   = BURST_RADIUS * (1 + progress * 0.5);
-      this.#g.circle(p.x, p.y, radius).fill({ color: BURST_COLOR, alpha });
+      this.#g.circle(p.x, p.y, radius).fill({ color: p.color, alpha });
     }
   }
 }

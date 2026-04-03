@@ -32,6 +32,11 @@ const MISS_FREQ     = 130;
 const MISS_DURATION = 0.18;
 const MISS_GAIN     = 0.22;
 
+/** Level-up: ascending 3-note fanfare */
+const LEVEL_UP_FREQS    = [440, 550, 660] as const;
+const LEVEL_UP_DURATION = 0.10; // seconds per note
+const LEVEL_UP_GAIN     = 0.14;
+
 /** Volume for the background music track (0–1) */
 const MUSIC_VOLUME = 0.5;
 
@@ -86,6 +91,13 @@ export class AudioManager {
 
   playMiss(): void {
     this.#playTone(MISS_FREQ, 'sawtooth', MISS_GAIN, this.#ctx.currentTime, MISS_DURATION);
+  }
+
+  playLevelUp(): void {
+    const now = this.#ctx.currentTime;
+    LEVEL_UP_FREQS.forEach((freq, i) => {
+      this.#playTone(freq, 'sine', LEVEL_UP_GAIN, now + i * LEVEL_UP_DURATION, LEVEL_UP_DURATION);
+    });
   }
 
   // ─── Private ────────────────────────────────────────────────────────────────

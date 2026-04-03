@@ -15,6 +15,8 @@ const DEFAULT_STATE: DifficultyState = {
   ringSpeed: BASE_RING_SPEED,
   ringSpeedVariance: 0,
   staggerMs: 550,
+  isLooping: false,
+  interRoundMs: 1200,
 };
 
 /** Advance simulation until the first ACTIVE ring reaches at or below targetRadius. */

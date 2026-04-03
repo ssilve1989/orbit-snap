@@ -46,6 +46,7 @@ export class TitleScreen {
   readonly #root: HTMLDivElement;
   readonly #styleEl: HTMLStyleElement;
   #onStart: (() => void) | null = null;
+  #inputCooldownId: ReturnType<typeof setTimeout> | null = null;
 
   #clickHandler  = () => this.#trigger();
   #touchHandler  = (e: TouchEvent) => { e.preventDefault(); this.#trigger(); };
@@ -75,13 +76,20 @@ export class TitleScreen {
   show(onStart: () => void): void {
     this.#onStart = onStart;
     this.#root.style.display = 'flex';
-    document.addEventListener('keydown',    this.#keyHandler);
-    document.addEventListener('click',      this.#clickHandler);
-    document.addEventListener('touchstart', this.#touchHandler, { passive: false });
+    this.#inputCooldownId = setTimeout(() => {
+      this.#inputCooldownId = null;
+      document.addEventListener('keydown',    this.#keyHandler);
+      document.addEventListener('click',      this.#clickHandler);
+      document.addEventListener('touchstart', this.#touchHandler, { passive: false });
+    }, 400);
   }
 
   /** Hide the screen and remove event listeners. */
   hide(): void {
+    if (this.#inputCooldownId !== null) {
+      clearTimeout(this.#inputCooldownId);
+      this.#inputCooldownId = null;
+    }
     this.#root.style.display = 'none';
     document.removeEventListener('keydown',    this.#keyHandler);
     document.removeEventListener('click',      this.#clickHandler);

@@ -145,7 +145,7 @@ void main() {
     vec2 d = uv - vec2(0.5);
     d.x *= uAspectRatio;
     float dist = length(d);
-    float phi = atan(d.y, d.x);
+    vec2 dNorm = normalize(d + vec2(0.001, 0.0));
 
     vec3 col = vec3(0.005, 0.025, 0.030);
     col += starField(uv, 0.38, 0.28);
@@ -154,12 +154,12 @@ void main() {
     float beamAngle = uTime * 0.45;
     for (int i = 0; i < 2; i++) {
         float ba = beamAngle + float(i) * 3.14159265;
-        float da = phi - ba;
-        // Wrap to [-pi, pi]
-        da = da - 6.28318530 * floor((da + 3.14159265) / 6.28318530);
+        vec2 beamDir = vec2(cos(ba), sin(ba));
+        // Cross product gives sin(angular diff) — continuous everywhere, no ±π seam
+        float sinDa = dNorm.x * beamDir.y - dNorm.y * beamDir.x;
         float falloff = 1.0 / max(dist * 2.2 + 0.18, 0.18);
-        float bloom = exp(-da * da * 5.0) * 0.20 * falloff;
-        float sharp = exp(-da * da * 90.0) * 0.65 * falloff;
+        float bloom = exp(-sinDa * sinDa * 5.0) * 0.20 * falloff;
+        float sharp = exp(-sinDa * sinDa * 90.0) * 0.65 * falloff;
         float pulse = 0.55 + uPulse * 0.45;
         col += vec3(0.05, 0.50, 1.0) * bloom * pulse;
         col += vec3(0.55, 0.85, 1.0) * sharp * pulse;

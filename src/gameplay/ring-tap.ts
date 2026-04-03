@@ -180,8 +180,8 @@ export class RingTap {
   }
 
   /** Read-only snapshot of all ring states for the renderer. */
-  get rings(): RingState[] {
-    return this.#rings.map(r => ({ ...r }));
+  get rings(): readonly RingState[] {
+    return this.#rings as readonly RingState[];
   }
 
   get state(): 'WAITING' | 'ACTIVE' {

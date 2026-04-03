@@ -45,9 +45,16 @@ const scoring    = new ScoringCombo();
 const audio      = new AudioManager();
 
 // Rendering layers (order matters — each addChild appends above the previous)
-const backgrounds = new BackgroundManager(app.stage, W, H);
-const renderer    = new GameRenderer(app.stage, W, H);
-const vfx         = new VfxManager(app.stage, W, H);
+// shakeLayer: displaced during screen shake (backgrounds, rings, particles)
+// overlayLayer: above shakeLayer, NOT displaced (miss flash overlay)
+const shakeLayer   = new PIXI.Container();
+const overlayLayer = new PIXI.Container();
+app.stage.addChild(shakeLayer);
+app.stage.addChild(overlayLayer);
+
+const backgrounds = new BackgroundManager(shakeLayer, W, H);
+const renderer    = new GameRenderer(shakeLayer, W, H);
+const vfx         = new VfxManager(shakeLayer, overlayLayer, W, H);
 
 // UI (DOM overlays, above canvas via z-index)
 const hud         = new Hud();
@@ -110,6 +117,7 @@ ringTap.onRingResolved(event => {
       audio.playPerfect();
       break;
     case 'GOOD':
+      vfx.spawnGoodBurst();
       audio.playGood();
       break;
     case 'MISS':
@@ -121,7 +129,10 @@ ringTap.onRingResolved(event => {
 });
 
 ringTap.onRoundEnd(() => {
+  const levelBefore = difficulty.getDifficultyState().level;
   difficulty.onRoundEnd();
+  const levelAfter = difficulty.getDifficultyState().level;
+  if (levelAfter > levelBefore) audio.playLevelUp();
   phase = 'BETWEEN_ROUNDS';
   interRoundTimer = difficulty.getDifficultyState().interRoundMs;
 });
@@ -130,18 +141,28 @@ ringTap.onRoundEnd(() => {
 
 function endSession(): void {
   phase = 'SCORE';
+  activeFlash = null;
+  renderer.clear();
+  vfx.reset();
   audio.pauseMusic();
   const isNewBest = saveBestScore(scoring.score);
   scoreScreen.show(
     {
       score:      scoring.score,
       maxCombo:   scoring.maxCombo,
+      level:      difficulty.getDifficultyState().level + 1,
       bestScore:  loadBestScore(),
       isNewBest,
     },
     () => {
       audio.resumeMusic();
       startSession();
+    },
+    () => {
+      titleScreen.show(() => {
+        audio.resumeMusic();
+        startSession();
+      });
     },
   );
 }
@@ -189,10 +210,12 @@ app.ticker.add(() => {
   }
 
   backgrounds.update(performance.now());
-  vfx.update(dt);
 
-  const orbFlash: OrbFlash | null = activeFlash;
-  renderer.draw(ringTap.rings, dt, orbFlash);
+  if (phase === 'PLAYING' || phase === 'BETWEEN_ROUNDS') {
+    vfx.update(dt);
+    const orbFlash: OrbFlash | null = activeFlash;
+    renderer.draw(ringTap.rings, dt, orbFlash);
+  }
 });
 
 // ─── Boot — show title screen ─────────────────────────────────────────────────
