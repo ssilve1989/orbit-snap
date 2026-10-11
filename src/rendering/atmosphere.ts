@@ -55,9 +55,6 @@ const CAMERA_DRIFT_AMP_X = 0.010;
 const CAMERA_DRIFT_AMP_Y = 0.008;
 const CAMERA_DRIFT_RATE_X = 0.11;
 const CAMERA_DRIFT_RATE_Y = 0.083;
-/** Pointer steering: UV offset per unit of normalised pointer offset (−0.5..0.5). */
-const CAMERA_POINTER_GAIN_X = 0.025;
-const CAMERA_POINTER_GAIN_Y = 0.02;
 /** Exponential ease rate (1/s) toward the camera target. */
 const CAMERA_EASE_RATE = 1.5;
 
@@ -108,7 +105,7 @@ export interface AtmosphereFrame {
 type MutableFrame = { -readonly [K in keyof AtmosphereFrame]: AtmosphereFrame[K] };
 
 export interface AtmosphereOptions {
-  /** When true the camera never drifts or follows the pointer. */
+  /** When true the camera never drifts. */
   readonly reducedMotion: boolean;
 }
 
@@ -149,8 +146,6 @@ export class Atmosphere {
   #combo = 0;
   #focusTarget = 0;
   #orbVisible = false;
-  #pointerX = 0;
-  #pointerY = 0;
 
   constructor(options: AtmosphereOptions) {
     this.#reducedMotion = options.reducedMotion;
@@ -174,12 +169,6 @@ export class Atmosphere {
   /** Whether the Classic orb is on screen; the plasma core fades to match. */
   setOrbVisible(visible: boolean): void {
     this.#orbVisible = visible;
-  }
-
-  /** Pointer position relative to screen centre, each axis −0.5..0.5. */
-  setPointer(nx: number, ny: number): void {
-    this.#pointerX = Math.min(0.5, Math.max(-0.5, nx));
-    this.#pointerY = Math.min(0.5, Math.max(-0.5, ny));
   }
 
   /**
@@ -235,10 +224,8 @@ export class Atmosphere {
 
     let camTargetX = 0, camTargetY = 0;
     if (!this.#reducedMotion) {
-      camTargetX = Math.sin(f.time * CAMERA_DRIFT_RATE_X) * CAMERA_DRIFT_AMP_X
-                 + this.#pointerX * CAMERA_POINTER_GAIN_X;
-      camTargetY = Math.cos(f.time * CAMERA_DRIFT_RATE_Y) * CAMERA_DRIFT_AMP_Y
-                 + this.#pointerY * CAMERA_POINTER_GAIN_Y;
+      camTargetX = Math.sin(f.time * CAMERA_DRIFT_RATE_X) * CAMERA_DRIFT_AMP_X;
+      camTargetY = Math.cos(f.time * CAMERA_DRIFT_RATE_Y) * CAMERA_DRIFT_AMP_Y;
     }
     const camEase = ease(CAMERA_EASE_RATE, step);
     f.camX += (camTargetX - f.camX) * camEase;

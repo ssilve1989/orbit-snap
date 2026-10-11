@@ -178,17 +178,14 @@ describe('Atmosphere — focus pull', () => {
 });
 
 describe('Atmosphere — parallax camera', () => {
-  it('drifts and follows the pointer', () => {
+  it('drifts slowly on its own', () => {
     const a = new Atmosphere({ reducedMotion: false });
-    a.setPointer(0.5, 0.5);
     run(a, 6);
-    expect(a.frame.camX).toBeGreaterThan(0);
-    expect(a.frame.camY).toBeGreaterThan(0);
+    expect(a.frame.camX).not.toBe(0);
   });
 
   it('stays still with reduced motion', () => {
     const a = new Atmosphere({ reducedMotion: true });
-    a.setPointer(0.5, -0.5);
     run(a, 6);
     expect(a.frame.camX).toBe(0);
     expect(a.frame.camY).toBe(0);
