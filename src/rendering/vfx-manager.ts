@@ -30,6 +30,18 @@ const BURST_RADIUS    = 3;    // particle dot radius (px)
 const BURST_COLOR_PERFECT = 0x00ffcc; // teal
 const BURST_COLOR_GOOD    = 0x88ff44; // lime
 
+/** Pinpoint milestone burst — bigger, gold */
+const MILESTONE_PARTICLE_COUNT = 22;
+const MILESTONE_LIFETIME       = 0.6;
+const MILESTONE_SPEED_MULT     = 1.5;
+const MILESTONE_COLOR          = 0xffd34d;
+const MILESTONE_FLASH_ALPHA    = 0.12;
+
+/** Shield block — blue flash, no shake */
+const SHIELD_PARTICLE_COUNT = 12;
+const SHIELD_COLOR          = 0x66ccff;
+const SHIELD_FLASH_ALPHA    = 0.16;
+
 const MISS_FLASH_ALPHA_PEAK = 0.28;
 const MISS_FLASH_DECAY      = 1.4;  // alpha/s
 const MISS_FLASH_COLOR      = 0xff2222;
@@ -105,15 +117,18 @@ export class VfxManager {
     shakeParent.addChild(this.#g);
   }
 
-  /** Spawn a radial particle burst at the orb centre (Perfect grade). */
-  spawnPerfectBurst(): void {
+  /**
+   * Spawn a radial particle burst (Perfect grade).
+   * Defaults to the orb centre; Scatter mode passes the target position.
+   */
+  spawnPerfectBurst(x: number = this.#cx, y: number = this.#cy): void {
     for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
       const angle = (i / BURST_PARTICLE_COUNT) * Math.PI * 2 +
                     (Math.random() - 0.5) * 0.4;
       const speed = BURST_SPEED_MIN + Math.random() * (BURST_SPEED_MAX - BURST_SPEED_MIN);
       this.#particles.push({
-        x:       this.#cx,
-        y:       this.#cy,
+        x,
+        y,
         vx:      Math.cos(angle) * speed,
         vy:      Math.sin(angle) * speed,
         life:    BURST_LIFETIME,
@@ -123,15 +138,15 @@ export class VfxManager {
     }
   }
 
-  /** Spawn a lighter particle burst at the orb centre (Good grade). */
-  spawnGoodBurst(): void {
+  /** Spawn a lighter particle burst (Good grade). Defaults to the orb centre. */
+  spawnGoodBurst(x: number = this.#cx, y: number = this.#cy): void {
     for (let i = 0; i < GOOD_PARTICLE_COUNT; i++) {
       const angle = (i / GOOD_PARTICLE_COUNT) * Math.PI * 2 +
                     (Math.random() - 0.5) * 0.6;
       const speed = BURST_SPEED_MIN + Math.random() * (BURST_SPEED_MAX - BURST_SPEED_MIN) * 0.7;
       this.#particles.push({
-        x:       this.#cx,
-        y:       this.#cy,
+        x,
+        y,
         vx:      Math.cos(angle) * speed,
         vy:      Math.sin(angle) * speed,
         life:    GOOD_LIFETIME,
@@ -139,6 +154,18 @@ export class VfxManager {
         color:   BURST_COLOR_GOOD,
       });
     }
+  }
+
+  /** Large gold burst plus a soft flash for a Pinpoint streak milestone. */
+  spawnMilestoneBurst(x: number, y: number): void {
+    this.#radialBurst(x, y, MILESTONE_PARTICLE_COUNT, MILESTONE_LIFETIME, MILESTONE_COLOR, MILESTONE_SPEED_MULT);
+    this.#flash = { color: MILESTONE_COLOR, alpha: MILESTONE_FLASH_ALPHA, decay: MISS_FLASH_DECAY };
+  }
+
+  /** Blue burst and flash when a shield absorbs a miss (no shake). */
+  spawnShieldBlock(x: number, y: number): void {
+    this.#radialBurst(x, y, SHIELD_PARTICLE_COUNT, GOOD_LIFETIME, SHIELD_COLOR, 1);
+    this.#flash = { color: SHIELD_COLOR, alpha: SHIELD_FLASH_ALPHA, decay: MISS_FLASH_DECAY };
   }
 
   /** Flash the screen red and shake (Miss grade). */
@@ -211,6 +238,21 @@ export class VfxManager {
   }
 
   // ─── Private ────────────────────────────────────────────────────────────────
+
+  #radialBurst(x: number, y: number, count: number, lifetime: number, color: number, speedMult: number): void {
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const speed = (BURST_SPEED_MIN + Math.random() * (BURST_SPEED_MAX - BURST_SPEED_MIN)) * speedMult;
+      this.#particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: lifetime,
+        maxLife: lifetime,
+        color,
+      });
+    }
+  }
 
   #draw(): void {
     // Screen flash overlay (on separate non-shaken layer)

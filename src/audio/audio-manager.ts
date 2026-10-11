@@ -37,6 +37,21 @@ const LEVEL_UP_FREQS    = [440, 550, 660] as const;
 const LEVEL_UP_DURATION = 0.10; // seconds per note
 const LEVEL_UP_GAIN     = 0.14;
 
+/** Pinpoint milestone: bright 4-note arpeggio */
+const MILESTONE_FREQS    = [1047, 1319, 1568, 2093] as const;
+const MILESTONE_DURATION = 0.07;
+const MILESTONE_GAIN     = 0.12;
+
+/** Power-up pick: two-note rising triangle */
+const POWER_UP_FREQS    = [523, 784] as const;
+const POWER_UP_DURATION = 0.12;
+const POWER_UP_GAIN     = 0.16;
+
+/** Shield block: metallic square ping */
+const SHIELD_FREQ     = 392;
+const SHIELD_DURATION = 0.16;
+const SHIELD_GAIN     = 0.08;
+
 /** Volume for the background music track (0–1) */
 const MUSIC_VOLUME = 0.5;
 
@@ -100,7 +115,27 @@ export class AudioManager {
     });
   }
 
+  /** Scatter mode: Pinpoint streak milestone reached. */
+  playMilestone(): void {
+    this.#playSequence(MILESTONE_FREQS, 'sine', MILESTONE_GAIN, MILESTONE_DURATION);
+  }
+
+  /** Scatter mode: power-up drafted. */
+  playPowerUp(): void {
+    this.#playSequence(POWER_UP_FREQS, 'triangle', POWER_UP_GAIN, POWER_UP_DURATION);
+  }
+
+  /** Scatter mode: shield absorbed a miss. */
+  playShield(): void {
+    this.#playTone(SHIELD_FREQ, 'square', SHIELD_GAIN, this.#ctx.currentTime, SHIELD_DURATION);
+  }
+
   // ─── Private ────────────────────────────────────────────────────────────────
+
+  #playSequence(freqs: readonly number[], type: OscillatorType, gain: number, step: number): void {
+    const now = this.#ctx.currentTime;
+    freqs.forEach((freq, i) => this.#playTone(freq, type, gain, now + i * step, step));
+  }
 
   /**
    * Schedules a single tone: oscillator → gain envelope → destination.

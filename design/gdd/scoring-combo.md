@@ -51,6 +51,9 @@ no Misses — should feel meaningfully different on the scoreboard from a sloppy
 - **← S1 Ring Tap**: receives `RingResolved { grade, ringId, timestamp }` — sole input
 - **→ S5 HUD**: exposes read-only `{ score, combo, maxCombo, multiplier }` — HUD reads
   each frame
+- **→ S7–S10 Scatter Mode**: re-uses `PERFECT_BASE`, `GOOD_BASE`, `MULTIPLIER_TABLE`
+  and `COMBO_STEP` for its own run scoring (see [scatter-mode.md](scatter-mode.md));
+  changes to these values affect both modes
 
 ## Formulas
 

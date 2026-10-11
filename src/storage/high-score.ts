@@ -3,12 +3,18 @@
  * Handles missing storage and corrupt values gracefully.
  */
 
-const STORAGE_KEY = 'orbit-snap:best-score';
+import type { GameMode } from '../game-mode.js';
+
+/** Classic keeps the original key so existing best scores carry over. */
+const STORAGE_KEYS: Readonly<Record<GameMode, string>> = {
+  CLASSIC: 'orbit-snap:best-score',
+  SCATTER: 'orbit-snap:best-score:scatter',
+};
 
 /** Returns the stored best score, or 0 if none exists or storage is unavailable. */
-export function loadBestScore(): number {
+export function loadBestScore(mode: GameMode = 'CLASSIC'): number {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEYS[mode]);
     if (raw === null) return 0;
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
@@ -22,11 +28,11 @@ export function loadBestScore(): number {
  * Only writes if score exceeds the current stored value.
  * @returns true if the value was saved (it was a new best).
  */
-export function saveBestScore(score: number): boolean {
+export function saveBestScore(score: number, mode: GameMode = 'CLASSIC'): boolean {
   try {
-    const current = loadBestScore();
+    const current = loadBestScore(mode);
     if (score > current) {
-      localStorage.setItem(STORAGE_KEY, String(score));
+      localStorage.setItem(STORAGE_KEYS[mode], String(score));
       return true;
     }
     return false;
