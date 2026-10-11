@@ -1,6 +1,6 @@
 import {
   ORB_RADIUS, RING_MAX_RADIUS, ACCEL,
-  PERFECT_WINDOW, GOOD_WINDOW, AUTO_MISS_BUFFER,
+  PERFECT_WINDOW, GOOD_WINDOW, AUTO_MISS_BUFFER, TAP_LATENCY_MS,
 } from '../config.js';
 import type { DifficultyState } from './difficulty-progression.js';
 
@@ -103,15 +103,15 @@ export class RingTap {
 
     // Closest ring to ORB_RADIUS wins; ties broken by spawn order (lowest id)
     candidates.sort((a, b) => {
-      const dA = Math.abs(a.radius - ORB_RADIUS);
-      const dB = Math.abs(b.radius - ORB_RADIUS);
+      const dA = Math.abs(RingTap.#perceivedRadius(a) - ORB_RADIUS);
+      const dB = Math.abs(RingTap.#perceivedRadius(b) - ORB_RADIUS);
       return dA !== dB ? dA - dB : a.id - b.id;
     });
 
     const target = candidates[0];
     if (target === undefined) return;
 
-    const delta = Math.abs(target.radius - ORB_RADIUS);
+    const delta = Math.abs(RingTap.#perceivedRadius(target) - ORB_RADIUS);
 
     let grade: Grade;
     if (delta <= PERFECT_WINDOW) grade = 'PERFECT';
@@ -195,6 +195,11 @@ export class RingTap {
    */
   static computeRingSpeed(radius: number, baseSpeed: number): number {
     return baseSpeed + ACCEL * (1 - radius / RING_MAX_RADIUS);
+  }
+
+  /** Ring radius TAP_LATENCY_MS ago — what the player was looking at when they tapped. */
+  static #perceivedRadius(ring: MutableRing): number {
+    return ring.radius + RingTap.computeRingSpeed(ring.radius, ring.speed) * TAP_LATENCY_MS / 1000;
   }
 
   #resolveRing(ring: MutableRing, grade: Grade, timestamp = Date.now()): void {

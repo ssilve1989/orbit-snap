@@ -85,8 +85,11 @@ At orb (`d = ORB_RADIUS`): speed ≈ `BASE_SPEED + ACCEL × 0.88`
 
 **Hit delta (distance from perfect):**
 ```
-delta = |ring.radius - ORB_RADIUS|
+perceivedRadius = ring.radius + ringSpeed(ring.radius) × TAP_LATENCY_MS / 1000
+delta = |perceivedRadius - ORB_RADIUS|
 ```
+`TAP_LATENCY_MS` compensates for display + touch latency: the player taps when the ring
+*they see* meets the orb, which lags the simulation. Example: 175 px/s × 60 ms = 10.5 px.
 
 **Grade thresholds:**
 ```
@@ -124,8 +127,8 @@ ring[i].spawnTime = roundStartTime + (i × staggerMs)
 |----------|-------|-------|
 | `ORB_RADIUS` | 32 px | Fixed |
 | `RING_MAX_RADIUS` | 265 px | Spawn radius |
-| `PERFECT_WINDOW` | 9 px | ~78 ms at 115 px/s |
-| `GOOD_WINDOW` | 22 px | ~191 ms at 115 px/s |
+| `PERFECT_WINDOW` | 12 px | ~104 ms at 115 px/s (relaxed from 9 after playtest) |
+| `GOOD_WINDOW` | 30 px | ~261 ms at 115 px/s (relaxed from 22 after playtest) |
 | `AUTO_MISS_BUFFER` | 12 px | Grace distance past Good window |
 | `INTER_ROUND_MS` | 750 ms | Pause between rounds |
 | `ACCEL` | 0 px/s² (prototype) | Distance-based acceleration; TBD for production |
@@ -162,8 +165,9 @@ ring[i].spawnTime = roundStartTime + (i × staggerMs)
 | `RING_MAX_RADIUS` | 265 px | 220–320 | Short travel time; little anticipation build-up | Long travel; pacing feels slow |
 | `BASE_SPEED` | 115 px/s | 90–145 | Windows feel trivially wide | Windows feel punishing before acceleration kicks in |
 | `ACCEL` | 0 px/s² | 0–120 | No urgency ramp (flat speed) | Ring arrives so fast near orb that acceleration dominates over skill |
-| `PERFECT_WINDOW` | 9 px | 6–14 | Perfects feel impossible; luck-dependent | Perfects feel the same as Goods; grade distinction lost |
-| `GOOD_WINDOW` | 22 px | 16–30 | Goods feel rare; most hits are Misses | Good window so wide that Misses feel unfair |
+| `PERFECT_WINDOW` | 12 px | 6–14 | Perfects feel impossible; luck-dependent | Perfects feel the same as Goods; grade distinction lost |
+| `GOOD_WINDOW` | 30 px | 16–30 | Goods feel rare; most hits are Misses | Good window so wide that Misses feel unfair |
+| `TAP_LATENCY_MS` | 60 ms | 0–120 | Taps grade late; on-time taps on mobile become Misses | Taps grade early; players must tap late to score Perfect |
 | `AUTO_MISS_BUFFER` | 12 px | 8–20 | Auto-miss fires before player realises ring passed | Auto-miss delayed so long it feels unresponsive |
 | `STAGGER_MS` | 550 ms | 350–800 | Rings visually overlap; priority unclear | Rings feel sequential; 2-ring = 1-ring in practice |
 | `INTER_ROUND_MS` | 750 ms | 400–1200 | No breathing room between rounds | Pacing feels sluggish |

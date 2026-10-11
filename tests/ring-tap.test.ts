@@ -4,10 +4,13 @@ import type { DifficultyState } from '../src/gameplay/difficulty-progression.js'
 import {
   ORB_RADIUS, RING_MAX_RADIUS, ACCEL,
   PERFECT_WINDOW, GOOD_WINDOW, AUTO_MISS_BUFFER,
-  BASE_RING_SPEED,
+  BASE_RING_SPEED, TAP_LATENCY_MS,
 } from '../src/config.js';
 
 const AUTO_MISS_THRESHOLD = ORB_RADIUS - GOOD_WINDOW - AUTO_MISS_BUFFER;
+
+/** Distance a BASE_RING_SPEED ring travels during the tap latency compensation (px). */
+const LATENCY_PX = BASE_RING_SPEED * TAP_LATENCY_MS / 1000;
 
 const DEFAULT_STATE: DifficultyState = {
   level: 0,
@@ -75,11 +78,25 @@ describe('RingTap — grade thresholds', () => {
 
   it('grades PERFECT when delta <= PERFECT_WINDOW', () => {
     rt.startRound(DEFAULT_STATE);
-    advanceToRadius(rt, ORB_RADIUS + PERFECT_WINDOW);
+    advanceToRadius(rt, ORB_RADIUS + PERFECT_WINDOW - LATENCY_PX);
     const events: Array<{ grade: string }> = [];
     rt.onRingResolved(e => events.push(e));
     rt.onTap(0);
     expect(events[0]?.grade).toBe('PERFECT');
+  });
+
+  it('test_ringTap_lateTapWithinLatency_gradesGoodNotMiss', () => {
+    // Arrange: ring just past the raw Good window on the inside — a late tap
+    rt.startRound(DEFAULT_STATE);
+    advanceToRadius(rt, ORB_RADIUS - GOOD_WINDOW - 1);
+    const events: Array<{ grade: string }> = [];
+    rt.onRingResolved(e => events.push(e));
+
+    // Act
+    rt.onTap(0);
+
+    // Assert: latency compensation pulls it back inside the Good window
+    expect(events[0]?.grade).toBe('GOOD');
   });
 
   it('grades MISS when ring is far from ORB_RADIUS', () => {

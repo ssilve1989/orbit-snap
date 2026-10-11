@@ -10,10 +10,16 @@ export const RING_MAX_RADIUS = 265;
 export const ACCEL = 0;
 
 /** Half-width of Perfect grade window (px) */
-export const PERFECT_WINDOW = 9;
+export const PERFECT_WINDOW = 12;
 
 /** Half-width of Good grade window (px) */
-export const GOOD_WINDOW = 22;
+export const GOOD_WINDOW = 30;
+
+/**
+ * Display + touch latency compensation (ms). Taps are graded against where the ring
+ * was this long ago — i.e. where the player saw it. Lower if taps grade early.
+ */
+export const TAP_LATENCY_MS = 60;
 
 /** Grace distance past Good window before auto-miss fires (px) */
 export const AUTO_MISS_BUFFER = 12;

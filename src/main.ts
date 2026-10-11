@@ -397,7 +397,7 @@ function handleTap(x?: number, y?: number): void {
   }
 }
 
-app.canvas.addEventListener('click', (e: MouseEvent) => {
+app.canvas.addEventListener('mousedown', (e: MouseEvent) => {
   handleTap(e.offsetX, e.offsetY);
 });
 app.canvas.addEventListener('touchstart', (e: TouchEvent) => {
