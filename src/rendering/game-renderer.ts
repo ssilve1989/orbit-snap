@@ -3,7 +3,8 @@
  * Implements the visual layer of the S1 Ring Tap mechanic.
  *
  * Call draw() once per ticker tick, passing the latest ring state snapshot
- * from RingTap.rings and the current OrbFlash (if any).
+ * from RingTap.rings and the current OrbFlash (if any). Active rings leave
+ * fading echoes behind them so their closing speed is easy to read.
  */
 
 import * as PIXI from 'pixi.js';
@@ -42,6 +43,18 @@ const FLASH_DURATION_MS = 280;
 /** Controls how quickly the flash alpha reaches full intensity (ms) */
 const FLASH_RAMP_MS = 140;
 
+/** Ring trail: echoes behind each closing ring, one per TRAIL_STEP_S of travel. */
+const TRAIL_ECHOES = 3;
+const TRAIL_STEP_S = 0.05;
+/** Alpha of the nearest echo; echo k uses TRAIL_ALPHA / k. */
+const TRAIL_ALPHA = 0.2;
+/** Each echo is this fraction thinner than the one before. */
+const TRAIL_WIDTH_FALLOFF = 0.2;
+/** Clamp for the per-frame speed estimate (px/s). */
+const TRAIL_MAX_SPEED = 600;
+/** Blend factor toward each new speed sample (smooths frame-time jitter). */
+const TRAIL_SPEED_SMOOTHING = 0.3;
+
 // ─── Grade colors ─────────────────────────────────────────────────────────────
 
 /** Hex color emitted by the orb for each resolution grade */
@@ -70,6 +83,12 @@ interface ResolvedRingFade {
   alpha: number;
 }
 
+/** Last seen radius and estimated closing speed of an active ring. */
+interface RingMotion {
+  radius: number;
+  speed: number;
+}
+
 // ─── GameRenderer ─────────────────────────────────────────────────────────────
 
 export class GameRenderer {
@@ -79,6 +98,9 @@ export class GameRenderer {
 
   /** Tracks fade-out animation for rings that have been resolved (HIT / MISSED). */
   readonly #resolvedFades = new Map<number, ResolvedRingFade>();
+
+  /** Closing speed estimates for active rings, used to space the trail echoes. */
+  readonly #ringMotion = new Map<number, RingMotion>();
 
   /**
    * @param parent  Container to add the graphics layer to (above backgrounds).
@@ -101,6 +123,7 @@ export class GameRenderer {
    */
   draw(rings: readonly RingState[], dt: number, orbFlash: OrbFlash | null): void {
     this.#syncFades(rings, dt);
+    this.#syncMotion(rings, dt);
 
     const g = this.#graphics;
     g.clear();
@@ -114,6 +137,7 @@ export class GameRenderer {
   clear(): void {
     this.#graphics.clear();
     this.#resolvedFades.clear();
+    this.#ringMotion.clear();
   }
 
   /** Remove the graphics layer from the scene graph. */
@@ -151,6 +175,14 @@ export class GameRenderer {
         }
         case 'ACTIVE': {
           const color = this.#activeRingColor(ring.radius);
+          const speed = this.#ringMotion.get(ring.id)?.speed ?? 0;
+          for (let k = TRAIL_ECHOES; k >= 1 && speed > 0; k--) {
+            g.circle(cx, cy, ring.radius + speed * TRAIL_STEP_S * k).stroke({
+              width: RING_STROKE_WIDTH * (1 - k * TRAIL_WIDTH_FALLOFF),
+              color,
+              alpha: TRAIL_ALPHA / k,
+            });
+          }
           g.circle(cx, cy, ring.radius)
             .stroke({ width: RING_STROKE_WIDTH, color, alpha: 1 });
           break;
@@ -208,6 +240,32 @@ export class GameRenderer {
     // Prune fades for rings that have left the state array (round restarted)
     for (const id of this.#resolvedFades.keys()) {
       if (!rings.some(r => r.id === id)) this.#resolvedFades.delete(id);
+    }
+  }
+
+  /**
+   * Update closing-speed estimates for active rings and drop the rest.
+   * RingState carries no speed, so it is derived from the radius change.
+   */
+  #syncMotion(rings: readonly RingState[], dt: number): void {
+    for (const ring of rings) {
+      if (ring.state !== 'ACTIVE') {
+        this.#ringMotion.delete(ring.id);
+        continue;
+      }
+      const prev = this.#ringMotion.get(ring.id);
+      if (prev === undefined) {
+        this.#ringMotion.set(ring.id, { radius: ring.radius, speed: 0 });
+        continue;
+      }
+      if (dt > 0) {
+        const sample = Math.min(TRAIL_MAX_SPEED, Math.max(0, (prev.radius - ring.radius) / dt));
+        prev.speed = prev.speed === 0 ? sample : prev.speed + (sample - prev.speed) * TRAIL_SPEED_SMOOTHING;
+      }
+      prev.radius = ring.radius;
+    }
+    for (const id of this.#ringMotion.keys()) {
+      if (!rings.some(r => r.id === id)) this.#ringMotion.delete(id);
     }
   }
 

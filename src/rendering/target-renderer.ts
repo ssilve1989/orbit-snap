@@ -23,6 +23,12 @@ const CORE_STROKE_ALPHA = 0.9;
 /** Time over which a freshly spawned target fades in (ms). */
 const SPAWN_FADE_MS = 160;
 
+/** Approach ring trail: echoes behind the closing ring (matches the Classic ring trail). */
+const TRAIL_ECHOES = 3;
+const TRAIL_STEP_MS = 50;
+const TRAIL_ALPHA = 0.2;
+const TRAIL_WIDTH_FALLOFF = 0.2;
+
 /** Resolve ring: starts at the target radius and expands while fading. */
 const RESOLVE_START_ALPHA = 0.8;
 const RESOLVE_FADE_RATE = 2.6;   // alpha/s
@@ -178,8 +184,19 @@ export class TargetRenderer {
       .stroke({ width: CORE_STROKE_WIDTH, color: 0xffffff, alpha: CORE_STROKE_ALPHA * fadeIn });
 
     // Approach ring — white when fresh, warm orange near the hit moment (matches S1)
+    const color = approachColor(progress);
+    if (progress < 1) {
+      const closingPxPerMs = TARGET_RING_START_OFFSET / t.approachMs;
+      for (let k = TRAIL_ECHOES; k >= 1; k--) {
+        g.circle(t.x, t.y, ringRadius + closingPxPerMs * TRAIL_STEP_MS * k).stroke({
+          width: RING_STROKE_WIDTH * (1 - k * TRAIL_WIDTH_FALLOFF),
+          color,
+          alpha: (TRAIL_ALPHA / k) * fadeIn,
+        });
+      }
+    }
     g.circle(t.x, t.y, ringRadius)
-      .stroke({ width: RING_STROKE_WIDTH, color: approachColor(progress), alpha: fadeIn });
+      .stroke({ width: RING_STROKE_WIDTH, color, alpha: fadeIn });
   }
 
   #advance(dt: number): void {
