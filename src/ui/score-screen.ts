@@ -1,6 +1,6 @@
 /**
- * ScoreScreen — end-of-session overlay showing final score, max combo, level,
- * and best score. Provides two explicit actions: Play Again and Return to Title.
+ * ScoreScreen — end-of-session overlay showing final score, best score, and
+ * mode-specific stats. Provides two explicit actions: Play Again and Return to Title.
  */
 
 const STYLES = `
@@ -45,8 +45,11 @@ const STYLES = `
 }
 #orbit-score-stats {
   display: flex;
-  gap: 48px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px 48px;
   margin-bottom: 56px;
+  padding: 0 16px;
 }
 .orbit-score-stat {
   display: flex;
@@ -114,12 +117,18 @@ const STYLES = `
 }
 `;
 
+/** One labelled stat shown under the final score. */
+export interface ScoreStat {
+  label: string;
+  value: string | number;
+}
+
 export interface ScoreData {
   score: number;
-  maxCombo: number;
-  level: number;
   bestScore: number;
   isNewBest: boolean;
+  /** Mode-specific stats (e.g. LEVEL + COMBO for Classic). */
+  stats: readonly ScoreStat[];
 }
 
 export class ScoreScreen {
@@ -128,8 +137,7 @@ export class ScoreScreen {
   readonly #scoreEl: HTMLDivElement;
   readonly #newBestEl: HTMLDivElement;
   readonly #bestEl: HTMLDivElement;
-  readonly #levelEl: HTMLDivElement;
-  readonly #comboEl: HTMLDivElement;
+  readonly #statsEl: HTMLDivElement;
   readonly #restartBtn: HTMLButtonElement;
   readonly #titleBtn: HTMLButtonElement;
   #onRestart: (() => void) | null = null;
@@ -160,16 +168,7 @@ export class ScoreScreen {
       <div id="orbit-score-value">0</div>
       <div id="orbit-score-new-best"></div>
       <div id="orbit-score-best"></div>
-      <div id="orbit-score-stats">
-        <div class="orbit-score-stat">
-          <div class="orbit-score-stat-label">LEVEL</div>
-          <div id="orbit-score-level" class="orbit-score-stat-value">1</div>
-        </div>
-        <div class="orbit-score-stat">
-          <div class="orbit-score-stat-label">COMBO</div>
-          <div id="orbit-score-combo" class="orbit-score-stat-value">0</div>
-        </div>
-      </div>
+      <div id="orbit-score-stats"></div>
       <div id="orbit-score-actions">
         <button id="orbit-score-btn-restart">SPACE · PLAY AGAIN</button>
         <button id="orbit-score-btn-title">ESCAPE · RETURN TO TITLE</button>
@@ -180,8 +179,7 @@ export class ScoreScreen {
     this.#scoreEl    = this.#root.querySelector('#orbit-score-value')    as HTMLDivElement;
     this.#newBestEl  = this.#root.querySelector('#orbit-score-new-best') as HTMLDivElement;
     this.#bestEl     = this.#root.querySelector('#orbit-score-best')     as HTMLDivElement;
-    this.#levelEl    = this.#root.querySelector('#orbit-score-level')    as HTMLDivElement;
-    this.#comboEl    = this.#root.querySelector('#orbit-score-combo')    as HTMLDivElement;
+    this.#statsEl    = this.#root.querySelector('#orbit-score-stats')    as HTMLDivElement;
     this.#restartBtn = this.#root.querySelector('#orbit-score-btn-restart') as HTMLButtonElement;
     this.#titleBtn   = this.#root.querySelector('#orbit-score-btn-title')   as HTMLButtonElement;
   }
@@ -190,8 +188,18 @@ export class ScoreScreen {
     this.#scoreEl.textContent   = String(data.score);
     this.#newBestEl.textContent = data.isNewBest ? '✦ NEW BEST ✦' : '';
     this.#bestEl.textContent    = data.isNewBest ? '' : `BEST: ${data.bestScore}`;
-    this.#levelEl.textContent   = String(data.level);
-    this.#comboEl.textContent   = String(data.maxCombo);
+    this.#statsEl.replaceChildren(...data.stats.map(stat => {
+      const el = document.createElement('div');
+      el.className = 'orbit-score-stat';
+      const label = document.createElement('div');
+      label.className = 'orbit-score-stat-label';
+      label.textContent = stat.label;
+      const value = document.createElement('div');
+      value.className = 'orbit-score-stat-value';
+      value.textContent = String(stat.value);
+      el.append(label, value);
+      return el;
+    }));
 
     this.#onRestart = onRestart;
     this.#onTitle   = onTitle;

@@ -1,7 +1,7 @@
 # Systems Index: Orbit Snap
 
 > **Last Updated**: 2026-03-29
-> **Total Systems**: 6
+> **Total Systems**: 10
 > **MVP Systems**: Ring Tap, Scoring & Combo, Difficulty Progression
 
 ## Progress Tracker
@@ -23,6 +23,10 @@
 | S4 | Audio | Feedback | P1 — Full | S1 (Ring Tap) | — | Undesigned | — |
 | S5 | HUD & Score Display | UI | P1 — Full | S1, S2, S3 | — | Undesigned | — |
 | S6 | Level / Pattern System | Content | P1 — Full | S1 (Ring Tap) | S3 (Difficulty) | Undesigned | — |
+| S7 | Scatter: Target Field | Core | P1 — Mode | S1 (Grade), S2, S8 | S9, S10, HUD | Designed | [scatter-mode.md](scatter-mode.md) |
+| S8 | Scatter: Wave Progression | Core | P1 — Mode | — | S7 | Designed | [scatter-mode.md](scatter-mode.md) |
+| S9 | Pinpoint Streak | Core | P1 — Mode | S7 | HUD | Designed | [scatter-mode.md](scatter-mode.md) |
+| S10 | Roguelite Power-Ups | Meta | P1 — Mode | S7, S9 | S7 (timing rules) | Designed | [scatter-mode.md](scatter-mode.md) |
 
 ---
 
