@@ -14,7 +14,7 @@
  */
 
 import * as PIXI from 'pixi.js';
-import { MAX_MISSES, PINPOINT_STEP } from './config.js';
+import { MAX_MISSES, ORB_RADIUS, PINPOINT_STEP } from './config.js';
 import type { GameMode } from './game-mode.js';
 import { DifficultyProgression } from './gameplay/difficulty-progression.js';
 import { RingTap } from './gameplay/ring-tap.js';
@@ -25,6 +25,8 @@ import { TargetField } from './gameplay/target-field.js';
 import type { TargetResolvedEvent } from './gameplay/target-field.js';
 import { getPowerUp } from './gameplay/power-ups.js';
 import { AudioManager } from './audio/audio-manager.js';
+import { AmbientDust } from './rendering/ambient-dust.js';
+import { Atmosphere, focusFromRingDistance, focusFromTimeToHit } from './rendering/atmosphere.js';
 import { BackgroundManager } from './rendering/backgrounds.js';
 import { GameRenderer, GRADE_COLOR, FLASH_DURATION_MS } from './rendering/game-renderer.js';
 import type { OrbFlash } from './rendering/game-renderer.js';
@@ -76,9 +78,15 @@ app.stage.addChild(shakeLayer);
 app.stage.addChild(overlayLayer);
 
 const backgrounds    = new BackgroundManager(shakeLayer, W, H);
+const dust           = new AmbientDust(shakeLayer, W, H);
 const renderer       = new GameRenderer(shakeLayer, W, H);
 const targetRenderer = new TargetRenderer(shakeLayer);
 const vfx            = new VfxManager(shakeLayer, overlayLayer, W, H);
+
+// Backdrop reactivity (combo heat, ripple, focus, parallax, orb core)
+const atmosphere = new Atmosphere({
+  reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+});
 
 // UI (DOM overlays, above canvas via z-index)
 const hud         = new Hud();
@@ -128,6 +136,24 @@ function currentHudState(): HudState {
     level:           diffState.level + 1,
     missesRemaining: Math.max(0, MAX_MISSES - scoring.missCount),
   };
+}
+
+/**
+ * Focus pull target 0..1: how close the next hit is. Classic uses the nearest
+ * active ring's gap to the orb edge; Scatter uses the most urgent target's time.
+ */
+function currentFocus(): number {
+  if (phase !== 'PLAYING') return 0;
+  if (mode === 'CLASSIC') {
+    let gap = Infinity;
+    for (const ring of ringTap.rings) {
+      if (ring.state === 'ACTIVE') gap = Math.min(gap, ring.radius - ORB_RADIUS);
+    }
+    return gap === Infinity ? 0 : focusFromRingDistance(gap);
+  }
+  let timeToHit = Infinity;
+  for (const t of targetField.targets) timeToHit = Math.min(timeToHit, t.timeToHit);
+  return timeToHit === Infinity ? 0 : focusFromTimeToHit(timeToHit, scatterRun.timingRules.goodMs);
 }
 
 /** Enter BETWEEN_ROUNDS and run `action` once `ms` elapses. */
@@ -182,6 +208,7 @@ ringTap.onRingResolved(event => {
   hud.showGrade(event.grade);
   hud.update(currentHudState());
   activeFlash = { color: GRADE_COLOR[event.grade], remainingMs: FLASH_DURATION_MS };
+  atmosphere.onGrade(event.grade, 0.5, 0.5, GRADE_COLOR[event.grade]);
 
   switch (event.grade) {
     case 'PERFECT':
@@ -228,6 +255,9 @@ targetField.onWaveEnd(() => {
 
 function presentScatterOutcome(event: TargetResolvedEvent, outcome: HitOutcome): void {
   const { x, y } = event;
+  if (!outcome.shieldUsed) {
+    atmosphere.onGrade(outcome.grade, x / W, y / H, GRADE_COLOR[outcome.grade]);
+  }
   switch (outcome.grade) {
     case 'PERFECT':
       vfx.spawnPerfectBurst(x, y);
@@ -379,6 +409,11 @@ app.canvas.addEventListener('touchstart', (e: TouchEvent) => {
   }
 }, { passive: false });
 
+// Pointer position steers the parallax camera (window-level so overlays don't block it)
+window.addEventListener('pointermove', (e: PointerEvent) => {
+  atmosphere.setPointer(e.clientX / window.innerWidth - 0.5, e.clientY / window.innerHeight - 0.5);
+});
+
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (e.code === 'Space') {
     e.preventDefault();
@@ -411,7 +446,13 @@ app.ticker.add(() => {
     if (activeFlash.remainingMs <= 0) activeFlash = null;
   }
 
-  backgrounds.update(performance.now());
+  const live = isLive();
+  atmosphere.setCombo(live ? (mode === 'SCATTER' ? scatterRun.combo : scoring.combo) : 0);
+  atmosphere.setFocus(currentFocus());
+  atmosphere.setOrbVisible(live && mode === 'CLASSIC');
+  atmosphere.update(dt);
+  backgrounds.update(atmosphere.frame);
+  dust.update(dt, atmosphere.frame, live && mode === 'CLASSIC');
 
   if (isLive()) {
     vfx.update(dt);
